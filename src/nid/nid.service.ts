@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NidEntity } from './entities/nid.entity';
@@ -13,87 +13,67 @@ export class NidService {
   ) { }
 
   // Create a new NID
-  async create(createNidDto: CreateNidDto): Promise<NidEntity> {
+  async create(createNidDto: CreateNidDto): Promise<{ statusCode: HttpStatus; status: string; data?: NidEntity; error?: string }> {
     try {
       const newNid = this.nidRepository.create(createNidDto);
-      return await this.nidRepository.save(newNid);
+      const savedNid = await this.nidRepository.save(newNid);
+      return { statusCode: HttpStatus.CREATED, status: 'success', data: savedNid };
     } catch (error) {
-      throw new HttpException(
-        { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Failed to create NID', error: error.message },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, status: 'error', error: 'Failed to create NID: ' + error.message };
     }
   }
 
   // Get all NIDs
-  async findAll(): Promise<NidEntity[]> {
+  async findAll(): Promise<{ statusCode: HttpStatus; status: string; data?: NidEntity[]; error?: string }> {
     try {
-      return await this.nidRepository.find();
+      const nids = await this.nidRepository.find();
+      return { statusCode: HttpStatus.OK, status: 'success', data: nids };
     } catch (error) {
-      throw new HttpException(
-        { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Failed to retrieve NIDs', error: error.message },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, status: 'error', error: 'Failed to retrieve NIDs: ' + error.message };
     }
   }
 
   // Get a single NID by ID
-  async findOne(id: number): Promise<NidEntity> {
+  async findOne(id: number): Promise<{ statusCode: HttpStatus; status: string; data?: NidEntity; error?: string }> {
     try {
       const nid = await this.nidRepository.findOne({ where: { id } });
       if (!nid) {
-        throw new HttpException(
-          { status: HttpStatus.NOT_FOUND, message: `NID with ID ${id} not found` },
-          HttpStatus.NOT_FOUND,
-        );
+        return { statusCode: HttpStatus.NOT_FOUND, status: 'error', error: `NID with ID ${id} not found` };
       }
-      return nid;
+      return { statusCode: HttpStatus.OK, status: 'success', data: nid };
     } catch (error) {
-      throw new HttpException(
-        { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Failed to retrieve NID', error: error.message },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, status: 'error', error: 'Failed to retrieve NID: ' + error.message };
     }
   }
 
   // Update a NID
-  async update(id: number, updateNidDto: UpdateNidDto): Promise<NidEntity> {
+  async update(id: number, updateNidDto: UpdateNidDto): Promise<{ statusCode: HttpStatus; status: string; data?: NidEntity; error?: string }> {
     try {
-      const existingNid = await this.findOne(id);
+      const existingNid = await this.nidRepository.findOne({ where: { id } });
       if (!existingNid) {
-        throw new HttpException(
-          { status: HttpStatus.NOT_FOUND, message: `NID with ID ${id} not found` },
-          HttpStatus.NOT_FOUND,
-        );
+        return { statusCode: HttpStatus.NOT_FOUND, status: 'error', error: `NID with ID ${id} not found` };
       }
 
       await this.nidRepository.update(id, updateNidDto);
-      return this.findOne(id);
+      const updatedNid = await this.nidRepository.findOne({ where: { id } });
+      return { statusCode: HttpStatus.OK, status: 'success', data: updatedNid ?? undefined };
     } catch (error) {
-      throw new HttpException(
-        { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Failed to update NID', error: error.message },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, status: 'error', error: 'Failed to update NID: ' + error.message };
     }
   }
 
   // Delete a NID
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<{ statusCode: HttpStatus; status: string; message?: string; error?: string }> {
     try {
-      const nid = await this.findOne(id);
+      const nid = await this.nidRepository.findOne({ where: { id } });
       if (!nid) {
-        throw new HttpException(
-          { status: HttpStatus.NOT_FOUND, message: `NID with ID ${id} not found` },
-          HttpStatus.NOT_FOUND,
-        );
+        return { statusCode: HttpStatus.NOT_FOUND, status: 'error', error: `NID with ID ${id} not found` };
       }
 
       await this.nidRepository.remove(nid);
+      return { statusCode: HttpStatus.NO_CONTENT, status: 'success', message: 'NID deleted successfully' };
     } catch (error) {
-      throw new HttpException(
-        { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Failed to delete NID', error: error.message },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, status: 'error', error: 'Failed to delete NID: ' + error.message };
     }
   }
 }
